@@ -1,0 +1,22 @@
+{
+  "name": "s2g-webhook-handlers",
+  "version": "0.1.0",
+  "description": "Webhook handlers for SFTP To Go automation: PGP decryption, encryption, compression, and more.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "echo 'No build step needed'",
+    "start": "node api/webhook-pgp-decrypt.js"
+  },
+  "keywords": ["sftp", "webhook", "pgp", "decryption", "vercel", "automation"],
+  "author": "Crazy Ant Labs",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "openpgp": "^5.10.1",
+    "ssh2-sftp-client": "^9.0.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
