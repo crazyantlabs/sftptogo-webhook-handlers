@@ -12,7 +12,7 @@ module.exports = async (req, res) => {
 
   const sigHeader = req.headers['x-hub-signature'];
   const rawBody = await getRawBody(req);
-  const isValid = verifySignature(rawBody, sigHeader, config.webhookSecret);
+  const isValid = verifySignature(rawBody, sigHeader, config.pgpDecryptHandler.webhookSecret);
 
   if (!isValid) {
     console.warn('[webhook] Invalid signature');
@@ -20,8 +20,12 @@ module.exports = async (req, res) => {
   }
 
   const event = JSON.parse(rawBody);
-  const filePath = event.Data?.Path;
-  if (!filePath) return res.status(400).end('Missing file path');
+  const rawFilePath = event.Data?.Path;
+  if (!rawFilePath) return res.status(400).end('Missing file path');
+
+  // URL decode the file path to handle encoded characters (+ to space, % encoding)
+  const filePath = decodeURIComponent(rawFilePath.replace(/\+/g, ' '));
+  console.log('[webhook] Processing file:', { rawPath: rawFilePath, decodedPath: filePath });
 
   try {
     const sftp = new SFTPClient(config.sftp);
@@ -40,24 +44,25 @@ module.exports = async (req, res) => {
     sourceStream.on('end', async () => {
       console.log('[webhook] sourceStream ended');
       const buffer = Buffer.concat(chunks);
-      console.log('[webhook] Downloaded content as string (truncated to 500 chars):', buffer.toString('utf8', 0, 500));
+      console.log('[webhook] Downloaded content size:', buffer.length, 'bytes');
+      console.log('[webhook] Downloaded content (first 16 bytes as hex):', buffer.slice(0, 16).toString('hex'));
 
       try {
         const replayStream = Readable.from(buffer);
         const decryptedStream = await decryptPGPStream(
           replayStream,
-          config.pgpPrivateKey,
-          config.pgpPassphrase
+          config.pgpDecryptHandler.privateKey,
+          config.pgpDecryptHandler.passphrase
         );
         console.log('[webhook] Decryption complete');
 
         // Figure out folder and filename for upload
         const fileName = path.basename(filePath);
         let targetDir;
-        if (config.upload.relative) {
-          targetDir = path.join(path.dirname(filePath), config.upload.path);
+        if (config.pgpDecryptHandler.upload.relative) {
+          targetDir = path.join(path.dirname(filePath), config.pgpDecryptHandler.upload.path);
         } else {
-          targetDir = config.upload.path;
+          targetDir = config.pgpDecryptHandler.upload.path;
         }
         const uploadPath = path.join(targetDir, fileName);
 
@@ -68,7 +73,7 @@ module.exports = async (req, res) => {
         await sftp.uploadStream(decryptedStream, uploadPath);
         console.log('[webhook] Upload complete');
 
-        if (config.deleteAfterUpload) {
+        if (config.pgpDecryptHandler.deleteAfterUpload) {
           console.log('[webhook] Deleting source file:', filePath);
           await sftp.deleteFile(filePath);
           console.log('[webhook] Source deleted');
