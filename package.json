@@ -14,7 +14,7 @@
   "dependencies": {
     "dotenv": "^16.4.5",
     "minimatch": "^9.0.3",
-    "openpgp": "^6.0.0",
+    "openpgp": "^6.3.0",
     "ssh2-sftp-client": "^9.0.4"
   },
   "engines": {
