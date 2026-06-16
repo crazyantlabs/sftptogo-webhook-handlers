@@ -14,7 +14,7 @@ A Vercel-ready collection of webhook handlers for automating wor...on, or custom
 
 2. **Install dependencies:**
     ```bash
-...
+    npm install
     ```
 
 3. **Set environment variables:**
